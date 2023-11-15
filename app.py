@@ -7,8 +7,9 @@ from sqlalchemy.exc import IntegrityError
 import jwt
 from jwt.exceptions import DecodeError
 
-from forms import LoginForm, RegisterForm
+from forms import LoginForm, RegisterForm, PhotoForm
 from models import db, connect_db, User
+import uuid
 
 load_dotenv()
 
@@ -18,6 +19,13 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.environ['DATABASE_URL']
 app.config['SQLALCHEMY_ECHO'] = False
 app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
 app.config['SECRET_KEY'] = os.environ['SECRET_KEY']
+
+import boto3
+client = boto3.client(
+    's3',
+    aws_access_key_id=os.environ['ACCESS_KEY'],
+    aws_secret_access_key=os.environ['SECRET_KEY']
+)
 
 connect_db(app)
 
@@ -91,7 +99,9 @@ def register():
             form.username.data,
             form.password.data,
             form.zip_code.data,
-            form.friend_radius.data
+            form.friend_radius.data,
+            form.hobbies.data,
+            form.interests.data
         )
         db.session.commit()
 
@@ -117,6 +127,30 @@ def get_user(current_user, username):
         "user": {
             "username": user.username,
             "zip_code": user.zip_code,
-            "friend_radius": user.friend_radius
+            "friend_radius": user.friend_radius,
+            "hobbies":user.hobbies,
+            "interests":user.interests
         }
     })
+
+
+# Photo
+
+@app.post("/add-photo")
+@token_required
+def add_photo(current_user):
+    """"""
+    form = PhotoForm(data=request.files, meta={"csrf": False})
+
+    print("form file data", form.file.data)
+    print("request", request.files['image'])
+
+    if request.files:
+        client.upload_fileobj(
+            request.files['image'],
+            os.environ['BUCKET_NAME'],
+            "img2.jpg",
+            ExtraArgs={'ACL': 'public-read', 'ContentType': 'image/jpeg'})
+
+    return jsonify({"messages":["Upload successful."]})
+

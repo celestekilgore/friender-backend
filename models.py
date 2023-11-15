@@ -38,6 +38,18 @@ class User(db.Model):
         nullable=False,
     )
 
+    hobbies = db.Column(
+        db.Text,
+        nullable=False
+    )
+
+    interests = db.Column(
+        db.Text,
+        nullable=False
+    )
+
+    photos = db.relationship('Photo',backref="user")
+
     def __repr__(self):
         return f"<User #{self.id}: {self.username}>"
 
@@ -71,7 +83,7 @@ class User(db.Model):
         return False
 
     @classmethod
-    def signup(cls, username, password, zip_code, friend_radius):
+    def signup(cls, username, password, zip_code, friend_radius, hobbies, interests):
         """Sign up user.
 
         Hashes password and adds user to session.
@@ -84,6 +96,8 @@ class User(db.Model):
             password=hashed_pwd,
             zip_code=zip_code,
             friend_radius=friend_radius,
+            hobbies=hobbies,
+            interests=interests
         )
 
         db.session.add(user)
@@ -97,6 +111,22 @@ class User(db.Model):
         )
 
         return token
+
+class Photo(db.Model):
+    """Photo"""
+
+    __tablename__ = "photos"
+
+    url = db.Column(
+        db.String(500),
+        primary_key=True,
+    )
+
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id',ondelete='CASCADE'),
+        nullable=False
+    )
 
 
 def connect_db(app):

@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, IntegerField
+from wtforms import StringField, PasswordField, IntegerField, TextAreaField, FileField
 from wtforms.validators import InputRequired, Length, NumberRange
 
 
@@ -39,3 +39,22 @@ class RegisterForm(FlaskForm):
         "Friend Radius",
         validators=[InputRequired(), NumberRange(min=1, max=9999)],
     )
+
+    hobbies = TextAreaField(
+        "Hobbies",
+        validators=[InputRequired(), Length(min=2,max=500)]
+    )
+
+    interests = TextAreaField(
+        "Interests",
+        validators=[InputRequired(), Length(min=2,max=500)]
+    )
+
+class PhotoForm(FlaskForm):
+    """Form for logging in a user."""
+
+    file = FileField(
+        'Image file',
+        validators=[InputRequired(), Length(max=255)]
+    )
+
