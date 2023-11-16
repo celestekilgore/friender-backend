@@ -2,19 +2,23 @@ import os
 from dotenv import load_dotenv
 
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 from functools import wraps
 from sqlalchemy import and_, or_
 from sqlalchemy.exc import IntegrityError
 import jwt
 from jwt.exceptions import DecodeError
 
+load_dotenv()
+
 from forms import LoginForm, RegisterForm, RelationshipForm
 from models import db, connect_db, User, Relationship
 from api import add_image, get_zip_codes_around_radius
 
-load_dotenv()
 
 app = Flask(__name__)
+
+CORS(app)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ['DATABASE_URL']
 app.config['SQLALCHEMY_ECHO'] = False
