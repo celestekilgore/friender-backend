@@ -6,6 +6,36 @@ from flask import current_app
 bcrypt = Bcrypt()
 db = SQLAlchemy()
 
+DEFAULT_USER_IMAGE = "https://t4.ftcdn.net/jpg/02/15/84/43/240_F_215844325_ttX9YiIIyeaR7Ne6EaLLjMAmy4GvPC69.jpg"
+
+
+class Relationship(db.Model):
+    """Relationship in the system."""
+
+    __tablename__ = 'relationships'
+
+    id = db.Column(
+        db.Integer,
+        primary_key=True,
+    )
+
+    status = db.Column(
+        db.String(30),
+        nullable=False,
+    )
+
+    owner_user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id', ondelete="cascade"),
+        nullable=False,
+    )
+
+    target_user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id', ondelete="cascade"),
+        nullable=False,
+    )
+
 
 class User(db.Model):
     """User in the system."""
@@ -48,7 +78,19 @@ class User(db.Model):
         nullable=False
     )
 
-    photos = db.relationship('Photo',backref="user")
+    image = db.Column(
+        db.String(500),
+        nullable=False,
+        default=DEFAULT_USER_IMAGE
+    )
+
+    relationships = db.relationship(
+        "Relationship",
+        secondary="relationships",
+        primaryjoin=(Relationship.owner_user_id == id),
+        secondaryjoin=(Relationship.target_user_id == id),
+        backref="user"
+    )
 
     def __repr__(self):
         return f"<User #{self.id}: {self.username}>"
@@ -83,7 +125,7 @@ class User(db.Model):
         return False
 
     @classmethod
-    def signup(cls, username, password, zip_code, friend_radius, hobbies, interests):
+    def signup(cls, username, password, zip_code, friend_radius, hobbies, interests, image):
         """Sign up user.
 
         Hashes password and adds user to session.
@@ -97,7 +139,8 @@ class User(db.Model):
             zip_code=zip_code,
             friend_radius=friend_radius,
             hobbies=hobbies,
-            interests=interests
+            interests=interests,
+            image=image
         )
 
         db.session.add(user)
@@ -111,22 +154,6 @@ class User(db.Model):
         )
 
         return token
-
-class Photo(db.Model):
-    """Photo"""
-
-    __tablename__ = "photos"
-
-    url = db.Column(
-        db.String(500),
-        primary_key=True,
-    )
-
-    user_id = db.Column(
-        db.Integer,
-        db.ForeignKey('users.id',ondelete='CASCADE'),
-        nullable=False
-    )
 
 
 def connect_db(app):

@@ -1,6 +1,7 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, IntegerField, TextAreaField, FileField
-from wtforms.validators import InputRequired, Length, NumberRange
+from wtforms import StringField, PasswordField, IntegerField, TextAreaField, FileField, BooleanField
+from wtforms.validators import InputRequired, Length, NumberRange, Optional
+from flask_wtf.file import FileAllowed
 
 
 class LoginForm(FlaskForm):
@@ -42,19 +43,23 @@ class RegisterForm(FlaskForm):
 
     hobbies = TextAreaField(
         "Hobbies",
-        validators=[InputRequired(), Length(min=2,max=500)]
+        validators=[InputRequired(), Length(min=2, max=500)]
     )
 
     interests = TextAreaField(
         "Interests",
-        validators=[InputRequired(), Length(min=2,max=500)]
+        validators=[InputRequired(), Length(min=2, max=500)]
     )
 
-class PhotoForm(FlaskForm):
-    """Form for logging in a user."""
-
-    file = FileField(
-        'Image file',
-        validators=[InputRequired(), Length(max=255)]
+    image = FileField(
+        "Image",
+        validators=[Optional(), FileAllowed(['png', 'gif', 'jpg', 'jpeg'])]
     )
 
+class RelationshipForm(FlaskForm):
+    """Form for establishing relationship."""
+
+    response = BooleanField(
+        "Response",
+        validators=[InputRequired()],
+    )
