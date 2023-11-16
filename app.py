@@ -1,18 +1,16 @@
-import boto3
 import os
 from dotenv import load_dotenv
 
 from flask import Flask, jsonify, request
 from functools import wraps
-from sqlalchemy import and_
+from sqlalchemy import and_, or_
 from sqlalchemy.exc import IntegrityError
 import jwt
 from jwt.exceptions import DecodeError
-from pyzipcode import ZipCodeDatabase
 
 from forms import LoginForm, RegisterForm, RelationshipForm
 from models import db, connect_db, User, Relationship
-import uuid
+from api import add_image, get_zip_codes_around_radius
 
 load_dotenv()
 
@@ -23,19 +21,12 @@ app.config['SQLALCHEMY_ECHO'] = False
 app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
 app.config['SECRET_KEY'] = os.environ['SECRET_KEY']
 
-client = boto3.client(
-    's3',
-    aws_access_key_id=os.environ['ACCESS_KEY'],
-    aws_secret_access_key=os.environ['SECRET_ACCESS_KEY']
-)
-
-zcdb = ZipCodeDatabase()
-
 connect_db(app)
 
 
-# Authentication decorator
 def token_required(f):
+    """Decorator for protecting routes."""
+
     @wraps(f)
     def decorator(*args, **kwargs):
         token = None
@@ -45,30 +36,29 @@ def token_required(f):
             token = request.headers['x-access-token']
 
         if not token:  # throw error if no token provided
-            return (jsonify({"message": "A valid token is missing!"}), 401)
+            return (jsonify({"message": "Unauthorized"}), 401)
 
         try:
             # decode the token to obtain user public_id
             data = jwt.decode(
                 token, app.config['SECRET_KEY'], algorithms=['HS256'])
+
         except DecodeError:
             return (jsonify({"message": "Unauthorized"}), 401)
 
-        user = User.query.filter_by(username=data['username']).first()
-        if user is None:
+        current_user = User.query.filter_by(username=data['username']).first()
+        if current_user is None:
             return (jsonify({"message": "Unauthorized"}), 401)
 
         # Return the user information attached to the token
-        return f(user, *args, **kwargs)
+        return f(current_user, *args, **kwargs)
 
     return decorator
-
-# Login
 
 
 @app.post("/login")
 def login():
-    """Login"""
+    """Authenticates username and password and returns JWT token."""
 
     form = LoginForm(data=request.json, meta={"csrf": False})
 
@@ -86,12 +76,9 @@ def login():
     return jsonify({"token": token})
 
 
-# Register
-
-
 @app.post("/register")
 def register():
-    """Register"""
+    """Validates register data, creates new user, and returns JWT token."""
 
     form = RegisterForm(data=request.form, meta={"csrf": False})
 
@@ -118,12 +105,10 @@ def register():
     return jsonify({"token": token})
 
 
-# User
-
 @app.get("/users/<string:username>")
 @token_required
 def get_user(current_user, username):
-    """Get User"""
+    """Takes username and returns user."""
 
     user = User.query.filter_by(username=username).first()
 
@@ -142,64 +127,38 @@ def get_user(current_user, username):
     })
 
 
-# Image
-
-def add_image(image):
-    """Add image"""
-
-    file_type = image.content_type.split("/")[0]
-
-    if file_type != "image":
-        return (jsonify({"errors": ["Invalid image"]}), 400)
-
-    filename = str(uuid.uuid4())
-    BUCKET_NAME = os.environ['BUCKET_NAME']
-
-    client.upload_fileobj(
-        image,
-        BUCKET_NAME,
-        filename,
-        ExtraArgs={'ACL': 'public-read', 'ContentType':  image.content_type})
-
-    return f"https://{BUCKET_NAME}.s3.amazonaws.com/{filename}"
-
-
 @app.get("/users/<string:username>/get-potential-friend")
 @token_required
 def get_potential_friend(current_user, username):
-    """Get User"""
+    """Returns potential friend user within friend radius."""
 
-    zip_codes = [z.zip for z in zcdb.get_zipcodes_around_radius(
-        current_user.zip_code, current_user.friend_radius)]
+    zip_codes = get_zip_codes_around_radius(
+        current_user.zip_code,
+        current_user.friend_radius
+    )
 
-    users = User.query.filter(and_(
+    user = User.query.outerjoin(
+        Relationship,
+        or_(
+            (Relationship.owner_id == User.id) & (
+                Relationship.target_id == current_user.id),
+            (Relationship.target_id == User.id) & (
+                Relationship.owner_id == current_user.id),
+        )
+    ).filter(
+        User.username != current_user.username,
         User.zip_code.in_(zip_codes),
-        User.username != username,
-    )).all()
-
-    user = None
-
-    for target_user in users:
-        we_exist_on_theirs = [
-            r for r in target_user.relationships if r.target_user_id == current_user.id
-        ]
-
-        target_relationship = we_exist_on_theirs[0] if len(
-            we_exist_on_theirs) > 0 else None
-
-        they_exist_on_ours = [
-            r for r in current_user.relationships if r.target_user_id == target_user.id
-        ]
-
-        # no relationship exists
-        if not we_exist_on_theirs and not they_exist_on_ours:
-            user = target_user
-            break
-
-        # they are awaiting your response
-        if target_relationship and target_relationship.status == "pending":
-            user = target_user
-            break
+        or_(
+            and_(
+                Relationship.owner_id.is_(None),
+                Relationship.status.is_(None),
+            ),
+            and_(
+                Relationship.owner_id != current_user.id,
+                Relationship.status == 'pending',
+            ),
+        )
+    ).first()
 
     if not user:
         return jsonify({"message": "No users in your radius."})
@@ -219,62 +178,54 @@ def get_potential_friend(current_user, username):
 @app.post("/users/<string:username>/establish-relationship")
 @token_required
 def establish_relationship(current_user, username):
+    """
+    Takes username and establishes relationship with current user based on
+    current user response.
+    """
+
     form = RelationshipForm(data=request.json, meta={"csrf": False})
 
     if not form.validate():
         return (jsonify({"errors": form.errors}), 400)
 
-    # target_user = User.query.get(form.target_user_id.data)
     target_user = User.query.filter_by(username=username).first()
+    relationship = Relationship.query.get((target_user.id, current_user.id))
+    status = "friends" if form.response.data else "not-friends"
 
-    we_exist_on_theirs = [
-        r for r in target_user.relationships if r.target_user_id == current_user.id
-    ]
-    target_relationship = we_exist_on_theirs[0] if len(
-        we_exist_on_theirs) > 0 else None
-
-    they_exist_on_ours = [
-        r for r in current_user.relationships if r.target_user_id == target_user.id
-    ]
-    owner_relationship = they_exist_on_ours[0] if len(
-        they_exist_on_ours) > 0 else None
-
-    if target_relationship and owner_relationship:
-        if target_relationship.status == "friends" and owner_relationship.status == "friends":
-            return (jsonify({"errors": ["Already friends."]}), 400)
-
-        if target_relationship.status == "not-friends" and owner_relationship.status == "not-friends":
-            return (jsonify({"errors": ["Already not friends."]}), 400)
-
-    if form.response.data and not target_relationship and not owner_relationship:
-        status = "pending"
-
-    elif form.response.data and target_relationship.status == "pending":
-        status = "friends"
-
-    if not form.response.data:
-        status = "not-friends"
-
-    if target_relationship:
-        target_relationship.status = status
-    elif status == "not-friends":
-        new_relationship = Relationship(
-            owner_user_id=target_user.id,
-            target_user_id=current_user.id,
-            status=status
-        )
-        db.session.add(new_relationship)
-
-    if owner_relationship:
-        owner_relationship.status = status
+    if relationship:
+        relationship.status = status
     else:
         new_relationship = Relationship(
-            owner_user_id=current_user.id,
-            target_user_id=target_user.id,
-            status=status
+            owner_id=current_user.id,
+            target_id=target_user.id,
+            status=status if status == "not-friends" else "pending"
         )
         db.session.add(new_relationship)
 
     db.session.commit()
 
     return jsonify({"message": "Relationship successfully updated."})
+
+
+@app.get("/users/<string:username>/get-friends")
+@token_required
+def get_friends(current_user, username):
+    """Takes username and returns list of friends."""
+
+    target_user = User.query.filter_by(username=username).first()
+
+    friends = User.query.join(
+        Relationship,
+        or_(
+            (Relationship.owner_id == User.id) & (
+                Relationship.target_id == target_user.id),
+            (Relationship.target_id == User.id) & (
+                Relationship.owner_id == target_user.id),
+        )
+    ).filter(
+        Relationship.status == "friends"
+    ).all()
+
+    friends = [{"username": f.username} for f in friends]
+
+    return jsonify({"friends": friends})

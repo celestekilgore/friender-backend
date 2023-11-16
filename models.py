@@ -14,25 +14,20 @@ class Relationship(db.Model):
 
     __tablename__ = 'relationships'
 
-    id = db.Column(
+    owner_id = db.Column(
         db.Integer,
+        db.ForeignKey('users.id', ondelete="cascade"),
+        primary_key=True,
+    )
+
+    target_id = db.Column(
+        db.Integer,
+        db.ForeignKey('users.id', ondelete="cascade"),
         primary_key=True,
     )
 
     status = db.Column(
         db.String(30),
-        nullable=False,
-    )
-
-    owner_user_id = db.Column(
-        db.Integer,
-        db.ForeignKey('users.id', ondelete="cascade"),
-        nullable=False,
-    )
-
-    target_user_id = db.Column(
-        db.Integer,
-        db.ForeignKey('users.id', ondelete="cascade"),
         nullable=False,
     )
 
@@ -87,8 +82,8 @@ class User(db.Model):
     relationships = db.relationship(
         "Relationship",
         secondary="relationships",
-        primaryjoin=(Relationship.owner_user_id == id),
-        secondaryjoin=(Relationship.target_user_id == id),
+        primaryjoin=(Relationship.owner_id == id),
+        secondaryjoin=(Relationship.target_id == id),
         backref="user"
     )
 
