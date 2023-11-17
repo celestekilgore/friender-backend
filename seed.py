@@ -4,6 +4,7 @@ from models import User
 from api import add_image, BUCKET_NAME
 from werkzeug.datastructures import FileStorage
 from io import BytesIO
+import os
 
 
 def drop_tables():
@@ -81,9 +82,11 @@ def read_image_file(file_path, allowed_extensions=["jpg", "jpeg", "png", "gif", 
             file_content = BytesIO(file.read())
 
         # Create a FileStorage instance
-        filename = file_path.split("/")[-1]  # Extract the filename from the path
+        # Extract the filename from the path
+        filename = file_path.split("/")[-1]
         content_type = f'image/{file_type}'
-        file_storage = FileStorage(stream=file_content, filename=filename, content_type=content_type)
+        file_storage = FileStorage(
+            stream=file_content, filename=filename, content_type=content_type)
 
         return file_storage
 
@@ -98,7 +101,9 @@ if __name__ == '__main__':
     with app.app_context():
         drop_tables()
 
-        s3 = boto3.resource('s3')
+        s3 = boto3.resource('s3',
+                            aws_access_key_id=os.environ['ACCESS_KEY'],
+                            aws_secret_access_key=os.environ['SECRET_ACCESS_KEY'])
         bucket = s3.Bucket(BUCKET_NAME)
         bucket.objects.all().delete()
 
