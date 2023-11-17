@@ -75,7 +75,7 @@ def login():
     )
 
     if not token:
-        return (jsonify({"errors": ["Invalid username/password."]}), 400)
+        return (jsonify({"errors": {"error":["Invalid username/password."]}}), 400)
 
     return jsonify({"token": token})
 
@@ -89,6 +89,7 @@ def register():
     if not form.validate():
         return (jsonify({"errors": form.errors}), 400)
 
+    print(type(form.image.data))
     image_url = add_image(form.image.data) if form.image.data else None
 
     try:
@@ -165,7 +166,7 @@ def get_potential_friend(current_user, username):
     ).first()
 
     if not user:
-        return jsonify({"message": "No users in your radius."})
+        return jsonify({"user": None})
 
     return jsonify({
         "user": {
