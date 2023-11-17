@@ -1,3 +1,6 @@
+from forms import LoginForm, RegisterForm, RelationshipForm
+from models import db, connect_db, User, Relationship
+from api import add_image, get_zip_codes_around_radius, form_errors_to_list
 import os
 from dotenv import load_dotenv
 
@@ -10,10 +13,6 @@ import jwt
 from jwt.exceptions import DecodeError
 
 load_dotenv()
-
-from forms import LoginForm, RegisterForm, RelationshipForm
-from models import db, connect_db, User, Relationship
-from api import add_image, get_zip_codes_around_radius
 
 
 app = Flask(__name__)
@@ -67,7 +66,7 @@ def login():
     form = LoginForm(data=request.json, meta={"csrf": False})
 
     if not form.validate():
-        return (jsonify({"errors": form.errors}), 400)
+        return (jsonify({"errors": form_errors_to_list(form.errors)}), 400)
 
     token = User.authenticate(
         form.username.data,
@@ -75,7 +74,7 @@ def login():
     )
 
     if not token:
-        return (jsonify({"errors": {"error":["Invalid username/password."]}}), 400)
+        return (jsonify({"errors": ["Invalid username/password."]}), 400)
 
     return jsonify({"token": token})
 
@@ -87,9 +86,8 @@ def register():
     form = RegisterForm(data=request.form, meta={"csrf": False})
 
     if not form.validate():
-        return (jsonify({"errors": form.errors}), 400)
+        return (jsonify({"errors": form_errors_to_list(form.errors)}), 400)
 
-    print(type(form.image.data))
     image_url = add_image(form.image.data) if form.image.data else None
 
     try:
@@ -147,17 +145,14 @@ def get_potential_friend(current_user, username):
         or_(
             (Relationship.owner_id == User.id) & (
                 Relationship.target_id == current_user.id),
-            (Relationship.target_id == User.id) & (
-                Relationship.owner_id == current_user.id),
+            (Relationship.owner_id == current_user.id) & (
+                Relationship.target_id == User.id),
         )
     ).filter(
-        User.username != current_user.username,
+        User.id != current_user.id,
         User.zip_code.in_(zip_codes),
         or_(
-            and_(
-                Relationship.owner_id.is_(None),
-                Relationship.status.is_(None),
-            ),
+            Relationship.status.is_(None),
             and_(
                 Relationship.owner_id != current_user.id,
                 Relationship.status == 'pending',
@@ -191,7 +186,7 @@ def establish_relationship(current_user, username):
     form = RelationshipForm(data=request.json, meta={"csrf": False})
 
     if not form.validate():
-        return (jsonify({"errors": form.errors}), 400)
+        return (jsonify({"errors": form_errors_to_list(form.errors)}), 400)
 
     target_user = User.query.filter_by(username=username).first()
     relationship = Relationship.query.get((target_user.id, current_user.id))
@@ -200,16 +195,18 @@ def establish_relationship(current_user, username):
     if relationship:
         relationship.status = status
     else:
+        status = status if status == "not-friends" else "pending"
+
         new_relationship = Relationship(
             owner_id=current_user.id,
             target_id=target_user.id,
-            status=status if status == "not-friends" else "pending"
+            status=status
         )
         db.session.add(new_relationship)
 
     db.session.commit()
 
-    return jsonify({"message": "Relationship successfully updated."})
+    return jsonify({"status": status})
 
 
 @app.get("/users/<string:username>/get-friends")
@@ -224,13 +221,13 @@ def get_friends(current_user, username):
         or_(
             (Relationship.owner_id == User.id) & (
                 Relationship.target_id == target_user.id),
-            (Relationship.target_id == User.id) & (
-                Relationship.owner_id == target_user.id),
+            (Relationship.owner_id == target_user.id) & (
+                Relationship.target_id == User.id),
         )
     ).filter(
         Relationship.status == "friends"
     ).all()
 
-    friends = [{"username": f.username} for f in friends]
+    friends = [{"username": f.username, "image": f.image} for f in friends]
 
     return jsonify({"friends": friends})

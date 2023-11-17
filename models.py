@@ -102,7 +102,7 @@ class User(db.Model):
         False.
         """
 
-        user = cls.query.filter_by(username=username).one_or_none()
+        user = cls.query.filter_by(username=username.lower()).one_or_none()
 
         if user:
             is_auth = bcrypt.check_password_hash(user.password, password)
@@ -129,7 +129,7 @@ class User(db.Model):
         hashed_pwd = bcrypt.generate_password_hash(password).decode('UTF-8')
 
         user = User(
-            username=username,
+            username=username.lower(),
             password=hashed_pwd,
             zip_code=zip_code,
             friend_radius=friend_radius,
