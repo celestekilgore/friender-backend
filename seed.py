@@ -61,7 +61,7 @@ def seed_users():
             "image": None
         },
         {
-            "username": "OutsideZipCode",
+            "username": "testusername",
             "password": "password",
             "zip_code": "94111",
             "friend_radius": 25,
