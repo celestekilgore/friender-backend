@@ -16,50 +16,59 @@ def seed_users():
     # Create and add users to the database
     users_data = [
         {
-            "username": "MysticWanderer",
+            "username": "squirrely",
             "password": "password",
-            "zip_code": "10014",
+            "zip_code": "04106",
             "friend_radius": 50,
-            "hobbies": "spell casting, wandering",
-            "interests": "dark arts, cats",
+            "hobbies": "looking for nuts, storing nuts",
+            "interests": "nuts",
+            "image": add_image(read_image_file("./images/squirrel.jpg"))
+        },
+        {
+            "username": "LunaTheDog",
+            "password": "password",
+            "zip_code": "04106",
+            "friend_radius": 50,
+            "hobbies": "rolling, chasing, jumping",
+            "interests": "treats, tennis balls",
+            "image": add_image(read_image_file("./images/luna.jpg"))
+        },
+        {
+            "username": "lettucecat",
+            "password": "password",
+            "zip_code": "04106",
+            "friend_radius": 15,
+            "hobbies": "looking for lettuce",
+            "interests": "lettuce, bells, fences",
+            "image": add_image(read_image_file("./images/lettuce.jpg"))
+        },
+        {
+            "username": "Duckinthehat",
+            "password": "password",
+            "zip_code": "04106",
+            "friend_radius": 50,
+            "hobbies": "traveling, swimming",
+            "interests": "fashion",
+            "image": add_image(read_image_file("./images/duck.jpg"))
+        },
+        {
+            "username": "celestekilgore",
+            "password": "password",
+            "zip_code": "04106",
+            "friend_radius": 25,
+            "hobbies": "coding, yoga, hiking",
+            "interests": "engineering, animals",
             "image": None
         },
         {
-            "username": "QuantumJaguar",
+            "username": "OutsideZipCode",
             "password": "password",
             "zip_code": "94111",
-            "friend_radius": 50,
-            "hobbies": "teleporting, prowling",
-            "interests": "wormholes",
-            "image": add_image(read_image_file("./images/jag.jpg"))
-        },
-        {
-            "username": "BillGates",
-            "password": "password",
-            "zip_code": "94111",
-            "friend_radius": 50,
-            "hobbies": "reading, public speaking",
-            "interests": "software, philanthropy",
-            "image": add_image(read_image_file("./images/bill.jpg"))
-        },
-        {
-            "username": "TomHanks",
-            "password": "password",
-            "zip_code": "94111",
-            "friend_radius": 50,
-            "hobbies": "typewriter collecting, aviation, reading",
-            "interests": "acting",
-            "image": add_image(read_image_file("./images/tom.jpg"))
-        },
-        {
-            "username": "NebulaPioneer",
-            "password": "password",
-            "zip_code": "94111",
-            "friend_radius": 50,
-            "hobbies": "stargazing, astronomy",
-            "interests": "inventing, engineering, science",
+            "friend_radius": 25,
+            "hobbies": "reading",
+            "interests": "books",
             "image": None
-        },
+        }
     ]
 
     for user_info in users_data:
