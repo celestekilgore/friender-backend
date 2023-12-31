@@ -8,7 +8,6 @@ A full-stack tinder-like clone that allows users to find friends in their geogra
 - AWS S3
 - Bootstrap
 - PostgreSQL
-- JSONSchema
 - JSON Web Token
 - bcrypt
 
