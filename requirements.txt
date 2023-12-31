@@ -40,7 +40,6 @@ psycopg2==2.9.9
 psycopg2-binary==2.9.9
 ptyprocess==0.7.0
 pure-eval==0.2.2
-Pygments @ file:///private/tmp/pygments-20230806-6216-4zajry/Pygments-2.16.1
 PyJWT==2.8.0
 python-dateutil==2.8.2
 python-dotenv==1.0.0
